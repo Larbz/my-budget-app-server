@@ -4,8 +4,8 @@ import { createCategorie, getCategories, getCategoriesById } from "../controller
 
 const router: Router = Router();
 
-router.post("/create",TokenValidation, createCategorie);
-router.get("/get",TokenValidation, getCategories);
-router.get("/get/:id",TokenValidation, getCategoriesById);
+router.post("",TokenValidation, createCategorie);
+router.get("",TokenValidation, getCategories);
+router.get("/:id",TokenValidation, getCategoriesById);
 
 export default router;

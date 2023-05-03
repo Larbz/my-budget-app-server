@@ -25,3 +25,15 @@ export const getTransactions = async (req: Request, res: Response) => {
         res.status(200).json(transactions);
     }
 };
+
+export const updateTransactions = async (req:Request,res:Response)=>{
+    const editables = {
+        nameOfTransaction:req.body.nameOfTransaction,
+        amount:req.body.amount,
+        typeOfTransaction:req.body.typeOfTransaction,
+        categoryId:req.body.categoryId
+    }
+    const transaction = await Transaction.findByIdAndUpdate(req.params.id,editables);
+    console.log(transaction);
+    res.status(200).json(transaction);
+}

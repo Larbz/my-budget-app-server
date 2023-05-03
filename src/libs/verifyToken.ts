@@ -8,8 +8,12 @@ interface IPayload {
 }
 
 export const TokenValidation = (req: Request, res: Response, next: NextFunction) => {
-    const token = req.header("auth-token");
-    if (!token) return res.status(401).json("Acceso Denegado");
+    // const authToken=req.header('Authorization');
+    // if (!authToken) return res.status(401).json("Acceso Denegado");
+    // const token = authToken.split(' ')[1];
+    const cookies = req.cookies;
+    if (!cookies) return res.status(401).json("Acceso Denegado");
+    const token = cookies.jwt;
     const {_id} = jwt.verify(token, process.env.SECRET_KEY as string) as IPayload;
     req.userId=_id;
     next();
