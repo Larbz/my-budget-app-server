@@ -11,7 +11,7 @@ const app: Application = express();
 app.set("port", process.env.PORT);
 
 //middlewares
-app.use(cors({ credentials: true, origin: ["http://localhost:3000","http://localhost:5173"], optionsSuccessStatus: 200,exposedHeaders:"Authorization"}));
+app.use(cors({ credentials: true, origin: ["http://localhost:3000","http://localhost:5173"], optionsSuccessStatus: 200,exposedHeaders:["Authorization","CSRF"]}));
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
