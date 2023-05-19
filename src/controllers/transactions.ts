@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Filters } from "models/Filters";
+import {  Filters } from "models/Filters";
 import mongoose from "mongoose";
 import Categorie from "../models/Categorie";
 import Transaction, { ITransaction } from "../models/Transaction";
@@ -92,8 +92,21 @@ export const getTransactionWithFilters = async (req: Request, res: Response) => 
             });
         }
     }
-    const filters: Filters = { ...req.body, userId: new mongoose.Types.ObjectId(userId) };
+    
+    const filters: Filters = {
+        ...req.body,
+        userId: new mongoose.Types.ObjectId(userId),
+        ...(req.body.date &&
+        {
+            date:{
+                ...(req.body.date["$gte"] && {"$gte":new Date(req.body.date["$gte"])}),
+                ...(req.body.date["$lte"] && {"$lte":new Date(req.body.date["$lte"])}),
+            },
+        }),
+        ...(req.body.categoryId && {categoryId:new mongoose.Types.ObjectId(req.body.categoryId)})
+    };
 
+    console.log(filters);
     const transactions = await Transaction.aggregate([
         {
             $project: {
@@ -105,6 +118,7 @@ export const getTransactionWithFilters = async (req: Request, res: Response) => 
                 categoryId: 1,
                 userId: 1,
                 typeOfTransaction: 1,
+                date: 1,
             },
         },
         { $match: filters },
