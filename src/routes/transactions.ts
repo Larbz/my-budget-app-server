@@ -1,6 +1,11 @@
 import { Router } from "express";
-import { createTransaction, getTransactionWithFilters, getTransactions, updateTransactions } from "../controllers/transactions";
-import { TokenValidation } from "../libs/verifyToken";
+import {
+    createTransaction,
+    getTransactionWithFilters,
+    getTransactions,
+    updateTransactions,
+} from "../controllers/transactions";
+import { TokenValidation } from "../middlewares/verifyToken";
 
 const router: Router = Router();
 
