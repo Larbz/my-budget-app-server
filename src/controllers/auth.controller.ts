@@ -1,9 +1,20 @@
-import { CookieOptions, Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { Request, Response } from "express";
+import session from "express-session";
 import mongoose from "mongoose";
-import { generateCSRF, generateRefreshToken, generateToken } from "../libs/tokenGenerators";
+import {
+    generateCSRF,
+    generateRefreshToken,
+    generateToken,
+} from "../libs/tokenGenerators";
 import User, { IUser } from "../models/User";
 
+interface MySessionData {
+    user?: { id: number; username: string };
+}
+
+declare module "express-session" {
+    interface SessionData extends MySessionData {}
+}
 
 export const signup = async (req: Request, res: Response) => {
     //CREATING USER
@@ -23,25 +34,24 @@ export const signup = async (req: Request, res: Response) => {
         const savedUser = await user.save();
 
         //CREATE CSRF
-        generateCSRF(req,res);
+        generateCSRF(req, res);
 
         // CREATE REFRESH TOKEN
-        generateRefreshToken(savedUser._id, res);
+        generateRefreshToken(savedUser._id, req, res);
 
         //CREATE JWT TOKEN
-        const tokenStructure = generateToken(savedUser._id,res);
+        const tokenStructure = generateToken(savedUser._id, req, res);
 
         if (!tokenStructure) {
             return res.status(500).json("Internal server error");
         }
-        return res
-            .status(200)
-            .json({
-                res: true,
-                message: "Usuario creado correctamente",
-                Authorization: tokenStructure.token,
-                csrf:req.csrf,
-            });
+        return res.status(200).json({
+            res: true,
+            message: "Usuario creado correctamente",
+            Authorization: tokenStructure.token,
+            csrf: req.csrf,
+            refreshToken: req.refreshToken,
+        });
     } catch (error: unknown) {
         if (error instanceof Error) {
             if ((error as any).code === 11000) {
@@ -66,15 +76,15 @@ export const signin = async (req: Request, res: Response) => {
         const correctPassword: boolean = await user.validatePassword(req.body.password);
         if (!correctPassword) return res.status(400).json("Invalid Password");
     }
-
+    req.session.user = { id: 1, username: "2" };
+    console.log(req.session);
     //CREATE CSRF
-    generateCSRF(req,res);
-
+    generateCSRF(req, res);
     // CREATE REFRESH TOKEN
-    generateRefreshToken(user?._id, res);
+    generateRefreshToken(user?._id, req, res);
 
     //CREATE JWT TOKEN
-    const tokenStructure = generateToken(user?._id,res);
+    const tokenStructure = generateToken(user?._id, req, res);
 
     if (!tokenStructure) {
         return res.status(500).json("Internal server error");
@@ -82,8 +92,9 @@ export const signin = async (req: Request, res: Response) => {
     res.status(200).json({
         name: user?.name,
         last_name: user?.last_name,
-        csrf:req.csrf,
+        csrf: req.csrf,
         Authorization: tokenStructure.token,
+        refreshToken: req.refreshToken,
     });
 };
 
@@ -96,14 +107,18 @@ export const logout = async (req: Request, res: Response) => {
     });
 };
 
-export const refreshToken = (req: Request, res: Response) => {
+export const refreshToken = async (req: Request, res: Response) => {
     try {
-        const tokenStructure = generateToken(new mongoose.Types.ObjectId(req.userId),res);
-        generateCSRF(req,res);
-        return res.json({
-            token: tokenStructure?.token,
+        const tokenStructure = generateToken(
+            new mongoose.Types.ObjectId(req.userId),
+            req,
+            res
+        );
+        generateCSRF(req, res);
+        return res.status(200).json({
+            jwt: tokenStructure?.token,
             expiresIn: tokenStructure?.expiresIn,
-            csrf:req.csrf
+            csrf: req.csrf,
         });
     } catch (error) {
         console.log(error);
@@ -111,24 +126,27 @@ export const refreshToken = (req: Request, res: Response) => {
     }
 };
 
-export const updateRefreshToken = (req:Request,res:Response)=>{
+export const updateRefreshToken = async (req: Request, res: Response) => {
     try {
-        const tokenStructure = generateToken(new mongoose.Types.ObjectId(req.userId),res);
-        generateCSRF(req,res);
-        generateRefreshToken(new mongoose.Types.ObjectId(req.userId),res);
-        return res.json({
-            token: tokenStructure?.token,
-            expiresIn: tokenStructure?.expiresIn,
-            csrf:req.csrf
+        const tokenStructure = generateToken(
+            new mongoose.Types.ObjectId(req.userId),
+            req,
+            res
+        );
+        generateCSRF(req, res);
+        generateRefreshToken(new mongoose.Types.ObjectId(req.userId), req, res);
+        return res.status(200).json({
+            jwt: tokenStructure?.token,
+            csrf: req.csrf,
+            refreshToken: req.refreshToken,
         });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ error: "error de server" });
     }
-}
+};
 
 export const profile = async (req: Request, res: Response) => {
-    
     const user = await User.findById(req.userId, {
         password: 0,
         _id: 0,

@@ -1,5 +1,6 @@
+import { IsoDate } from "aws-sdk/clients/lightsail";
 import { Request, Response } from "express";
-import {  Filters } from "models/Filters";
+import { Filters } from "models/Filters";
 import mongoose from "mongoose";
 import Categorie from "../models/Categorie";
 import Transaction, { ITransaction } from "../models/Transaction";
@@ -57,76 +58,169 @@ export const updateTransactions = async (req: Request, res: Response) => {
     res.status(200).json(transaction);
 };
 
-export const getTransactionWithFilters = async (req: Request, res: Response) => {
-    const day: number = req.body.day;
-    const month: number = req.body.month;
-    const year: number = req.body.year;
-    const userId: string = req.userId;
-    if (
-        req.body.day > 31 ||
-        req.body.day < 1 ||
-        req.body.month < 1 ||
-        req.body.month > 12 ||
-        req.body.year < 1
-    ) {
-        //VALIDACION SIMPLE PARA FECHAS
-        return res.status(400).json({
-            res: false,
-            message: "Datos invalidos",
-        });
-    } else if (req.body.day && req.body.month && !req.body.year) {
-        //PONEMOS 2016 PARA PODER INCLUIR TAMBIEN CUANDO ES ANIO BISIESTO
-        const compare = new Date(2016, month, 0);
-        if (day > compare.getDate()) {
-            return res.status(400).json({
-                res: false,
-                message: "Datos invalidos",
-            });
-        }
-    } else if (req.body.day && req.body.month && req.body.year) {
-        const compare = new Date(year, month, 0);
-        if (day > compare.getDate()) {
-            return res.status(400).json({
-                res: false,
-                message: "Datos invalidos",
-            });
-        }
-    }
-    
-    const filters: Filters = {
-        ...req.body,
-        userId: new mongoose.Types.ObjectId(userId),
-        ...(req.body.date &&
-        {
-            date:{
-                ...(req.body.date["$gte"] && {"$gte":new Date(req.body.date["$gte"])}),
-                ...(req.body.date["$lte"] && {"$lte":new Date(req.body.date["$lte"])}),
-            },
-        }),
-        ...(req.body.categoryId && {categoryId:new mongoose.Types.ObjectId(req.body.categoryId)})
+interface myOwnQuery {
+    userId: mongoose.Types.ObjectId;
+    beforeThan?: string;
+    afterThan?: string;
+    date?: {
+        $gte?: Date;
+        $lte?: Date;
     };
+    lowerThan?: string;
+    greaterThan?: string;
+    amount?: {
+        $gte?: number;
+        $lte?: number;
+    };
+    categoryId?: mongoose.Types.ObjectId;
+}
+function parseQueryParams(query: myOwnQuery): myOwnQuery {
+    const queryParams: myOwnQuery = {} as myOwnQuery;
+    queryParams.userId = query.userId;
+    if (query.beforeThan !== undefined || query.afterThan !== undefined) {
+        queryParams.date = {
+            ...(query.afterThan && { $gte: new Date(query.afterThan) }),
+            ...(query.beforeThan && { $lte: new Date(query.beforeThan) }),
+        };
+    }
+    if (query.lowerThan !== undefined || query.greaterThan !== undefined) {
+        queryParams.amount = {
+            ...(query.greaterThan && { $gte: parseInt(query.greaterThan) }),
+            ...(query.lowerThan && { $lte: parseInt(query.lowerThan) }),
+        };
+    }
 
-    console.log(filters);
+    if (query.categoryId !== undefined) {
+        queryParams.categoryId = new mongoose.Types.ObjectId(query.categoryId);
+    }
+
+    return queryParams;
+}
+export const getTransactionWithFilters = async (req: Request, res: Response) => {
+    const userId: string = req.userId;
+    const limit: number = parseInt(req.query.limit as string) || 10;
+    const page: number = parseInt(req.query.page as string) || 1;
+    const skip: number = limit * (page - 1);
+    const queryParams = parseQueryParams({
+        ...req.query,
+        userId: new mongoose.Types.ObjectId(userId),
+    } as myOwnQuery);
     const transactions = await Transaction.aggregate([
+        { $match: queryParams },
         {
-            $project: {
-                year: { $year: "$date" },
-                month: { $month: "$date" },
-                day: { $dayOfMonth: "$date" },
-                nameOfTransaction: 1,
-                amount: 1,
-                categoryId: 1,
-                userId: 1,
-                typeOfTransaction: 1,
-                date: 1,
-            },
-        },
-        { $match: filters },
+            '$facet': {
+              'data': [], 
+              'count': [
+                {
+                  '$count': 'count'
+                }
+              ]
+            }
+          }, {
+            '$unwind': {
+              'path': '$count'
+            }
+          }, {
+            '$unwind': {
+              'path': '$data'
+            }
+          }, {
+            '$skip': skip
+          }, {
+            '$limit': limit
+          }, {
+            '$lookup': {
+              'from': 'categories', 
+              'localField': 'data.categoryId', 
+              'foreignField': '_id', 
+              'as': 'data.category'
+            }
+          }, {
+            '$unwind': {
+              'path': '$data.category',
+            //   preserveNullAndEmptyArrays:true
+            }
+          }, {
+            '$project': {
+              '_id': '$data._id', 
+              'nameOfTransaction': '$data.nameOfTransaction', 
+              'typeOfTransaction': '$data.typeOfTransaction', 
+              'amount': '$data.amount', 
+              'userId': '$data.userId', 
+              'category': '$data.category', 
+              'date': '$data.date', 
+              'year': {
+                '$year': '$data.date'
+              }, 
+              'month': {
+                '$month': '$data.date'
+              }, 
+              'day': {
+                '$dayOfMonth': '$data.date'
+              }, 
+              'count': '$count.count'
+            }
+          }, {
+            '$project': {
+              'category.__v': 0
+            }
+          }
+
+
+
+
+        // { $skip: skip },
+        // { $limit: limit },
+        // {
+        //     $lookup: {
+        //         from: "categories",
+        //         localField: "categoryId",
+        //         foreignField: "_id",
+        //         as: "category",
+        //     },
+        // },
+        // {
+        //     $unwind: {
+        //         path: "$category",
+        //     },
+        // },
+        // {
+        //     $project: {
+        //         _id: 1,
+        //         nameOfTransaction: 1,
+        //         typeOfTransaction: 1,
+        //         userId: 1,
+        //         amount: 1,
+        //         date: 1,
+        //         category: 1,
+        //         year: {
+        //             $year: "$date",
+        //         },
+        //         month: {
+        //             $month: "$date",
+        //         },
+        //         day: {
+        //             $dayOfMonth: "$date",
+        //         },
+        //     },
+        // },
+        // {
+        //     $project: {
+        //         "category.__v": 0,
+        //     },
+        // },
+        // {
+        //     $sort: {
+        //         date: 1,
+        //     },
+        // },
     ]);
     if (transactions.length !== 0) {
         return res.status(200).json({
             res: true,
-            transactions,
+            count: transactions.length,
+            totalResults:transactions[0].count,
+            data: transactions,
         });
     } else {
         res.header("X-Message", "No se encontraron resultados con los filtros indicados");
@@ -134,3 +228,4 @@ export const getTransactionWithFilters = async (req: Request, res: Response) => 
         res.end();
     }
 };
+

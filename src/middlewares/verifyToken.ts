@@ -8,12 +8,11 @@ interface IPayload {
 }
 
 export const TokenValidation = (req: Request, res: Response, next: NextFunction) => {
-
     const cookies = req.cookies;
+    console.log(cookies)
     if (!cookies.jwt|| (req.header("CSRF")!=cookies.csrf)) return res.status(401).json("Acceso Denegado");
     const token = cookies.jwt;
     const {_id} = jwt.verify(token, process.env.SECRET_KEY as string) as IPayload;
-    console.log(_id)
     req.userId=_id;
     req.csrf=cookies.csrf;
     next();
