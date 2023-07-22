@@ -1,6 +1,7 @@
 import { refreshToken } from './../controllers/auth.controller';
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import {config} from "../config/config"
 interface IPayload {
     _id:string;
     iat:number;
@@ -13,7 +14,7 @@ export const requireRefreshToken = (req:Request, res:Response, next:NextFunction
     console.log(cookies)
     if (!cookies.refreshToken || req.header('refreshToken')!=cookies.refreshToken) return res.status(401).json("Acceso Denegado");
     const refreshToken = cookies.refreshToken;
-    const {_id} = jwt.verify(refreshToken, process.env.REFRESH_KEY as string) as IPayload;
+    const {_id} = jwt.verify(refreshToken, config.REFRESH_KEY as string) as IPayload;
     console.log(_id)
     req.userId=_id;
     next();

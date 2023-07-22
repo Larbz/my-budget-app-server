@@ -82,7 +82,6 @@ export const signin = async (req: Request, res: Response) => {
     generateCSRF(req, res);
     // CREATE REFRESH TOKEN
     generateRefreshToken(user?._id, req, res);
-
     //CREATE JWT TOKEN
     const tokenStructure = generateToken(user?._id, req, res);
 

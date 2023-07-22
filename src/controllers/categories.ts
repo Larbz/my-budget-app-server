@@ -14,7 +14,7 @@ export const createCategorie = async (req: Request, res: Response) => {
 };
 
 export const getCategories = async (req: Request, res: Response) => {
-    const categories = await Categorie.find();
+    const categories = await Categorie.find({});
     if (categories) {
         res.status(200).json(categories);
     }

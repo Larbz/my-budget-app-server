@@ -1,10 +1,11 @@
 import mongoose, { ConnectOptions } from "mongoose";
-
+import {config} from "./config/config"
 mongoose
     .connect(
-        process.env.MONGO_URL as string,
+        config.MONGO_URL as string,
         {
             useNewUrlParser: true,
+            dbName:"my-budget-app"
         } as ConnectOptions
     )
     .then((db) => console.log("database connected"))

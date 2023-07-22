@@ -3,10 +3,10 @@ import { Request, Response } from "express";
 import { UploadedFile } from "express-fileupload";
 import fs from "fs";
 import Image, { IImage } from "../models/Image";
-
+import {config} from "../config/config"
 const s3 = new AWS.S3({
-    accessKeyId: process.env.AWS_PUBLIC_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
+    accessKeyId: config.AWS_PUBLIC_KEY,
+    secretAccessKey: config.AWS_SECRET_KEY,
 });
 
 const toBase64 = (file: File) =>
@@ -28,7 +28,7 @@ export const uploadImage = async (req: Request, res: Response) => {
     // console.log(fileContent)
     console.log(resp)
     const params = {
-        Bucket: process.env.AWS_BUCKET_NAME as string,
+        Bucket: config.AWS_BUCKET_NAME as string,
         Key: "catssd.jpg" as string, // File name you want to save as in S3
         Body: fileContent,
         ACL: "public-read",
